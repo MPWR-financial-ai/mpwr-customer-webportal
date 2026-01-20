@@ -1,0 +1,28 @@
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.dashboard-greeting {
+  margin-bottom: 4px;
+}
+
+.dashboard-greeting h1 {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin: 0 0 4px 0;
+}
+
+.dashboard-greeting p {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+@media (min-width: 768px) {
+  .dashboard-greeting h1 {
+    font-size: 28px;
+  }
+}

@@ -1,0 +1,112 @@
+.upcoming-payment {
+  padding: 20px;
+}
+
+.upcoming-payment.urgent {
+  border-color: var(--color-error);
+  background: linear-gradient(to bottom, #FEF3F2, white);
+}
+
+.upcoming-payment.soon {
+  border-color: var(--color-warning);
+  background: linear-gradient(to bottom, #FFFAEB, white);
+}
+
+.payment-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.payment-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: var(--color-grey-100);
+  border-radius: 10px;
+  color: var(--color-brand-primary);
+}
+
+.upcoming-payment.urgent .payment-icon {
+  background: #FEE2E2;
+  color: var(--color-error);
+}
+
+.upcoming-payment.soon .payment-icon {
+  background: #FEF3C7;
+  color: var(--color-warning);
+}
+
+.payment-title {
+  flex: 1;
+}
+
+.payment-title h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0 0 4px 0;
+}
+
+.due-badge {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--color-grey-100);
+  color: var(--color-text-secondary);
+}
+
+.upcoming-payment.urgent .due-badge {
+  background: #FEE2E2;
+  color: var(--color-error);
+}
+
+.upcoming-payment.soon .due-badge {
+  background: #FEF3C7;
+  color: #B54708;
+}
+
+.payment-details {
+  display: flex;
+  justify-content: space-between;
+  padding: 16px 0;
+  border-top: 1px solid var(--color-border-light);
+  border-bottom: 1px solid var(--color-border-light);
+  margin-bottom: 16px;
+}
+
+.payment-amount,
+.payment-date {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.amount-label,
+.date-label {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.amount-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.date-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.make-payment-btn {
+  width: 100%;
+}
