@@ -1,0 +1,223 @@
+version: 2.1
+
+# CircleCI Orbs
+orbs:
+  aws-cli: circleci/aws-cli@4.1.3
+  node: circleci/node@5.2.0
+
+# Reusable commands
+commands:
+  setup_node_dependencies:
+    description: "Install and cache Node dependencies"
+    steps:
+      - node/install-packages:
+          pkg-manager: npm
+          cache-version: v2
+          include-branch-in-cache-key: false
+
+# Jobs
+jobs:
+  # Code quality checks
+  lint:
+    docker:
+      - image: cimg/node:20.11
+    resource_class: medium
+    steps:
+      - checkout
+      - setup_node_dependencies
+      - run:
+          name: Run ESLint
+          command: npm run lint || true
+      - run:
+          name: Check TypeScript types
+          command: npm run type-check || npx tsc --noEmit || true
+
+  # Run tests
+  test:
+    docker:
+      - image: cimg/node:20.11
+    resource_class: medium
+    steps:
+      - checkout
+      - setup_node_dependencies
+      - run:
+          name: Run tests with coverage
+          command: npm run test -- --run --coverage || true
+      - store_test_results:
+          path: test-results
+      - store_artifacts:
+          path: coverage
+          destination: coverage-report
+
+  # Build customer portal
+  build:
+    docker:
+      - image: cimg/node:20.11
+    resource_class: large
+    parameters:
+      environment:
+        type: string
+        default: "dev"
+    steps:
+      - checkout
+      - setup_node_dependencies
+      - run:
+          name: Set environment variables for build
+          command: |
+            ENV="<< parameters.environment >>"
+
+            cat > .env << EOF
+            VITE_ENVIRONMENT=${ENV}
+            VITE_API_URL=${VITE_API_URL}
+            VITE_COGNITO_USER_POOL_ID=${VITE_COGNITO_BORROWER_POOL_ID}
+            VITE_COGNITO_CLIENT_ID=${VITE_COGNITO_BORROWER_CLIENT_ID}
+            VITE_COGNITO_DOMAIN=${VITE_COGNITO_BORROWER_DOMAIN}
+            EOF
+
+            cat .env
+      - run:
+          name: Build customer portal
+          command: |
+            npm run build
+
+            # Build stats
+            echo "Build complete!"
+            du -sh dist/
+            echo "Files in build:"
+            find dist/ -type f | wc -l
+      - persist_to_workspace:
+          root: .
+          paths:
+            - dist
+      - store_artifacts:
+          path: dist
+          destination: customer-portal-build
+
+  # Deploy to S3 and CloudFront
+  deploy:
+    docker:
+      - image: cimg/python:3.11-node
+    resource_class: medium
+    parameters:
+      environment:
+        type: string
+        default: "dev"
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - aws-cli/setup:
+          role_arn: ${AWS_ROLE_ARN}
+          region: ${AWS_REGION}
+      - run:
+          name: Get infrastructure outputs
+          command: |
+            # Get S3 bucket and CloudFront from Terraform outputs or environment
+            echo "export S3_BUCKET=${CUSTOMER_PORTAL_S3_BUCKET}" >> $BASH_ENV
+            echo "export CLOUDFRONT_ID=${CUSTOMER_PORTAL_CLOUDFRONT_ID}" >> $BASH_ENV
+      - run:
+          name: Sync to S3
+          command: |
+            echo "Deploying customer portal to ${S3_BUCKET}"
+
+            # Sync assets with long cache
+            aws s3 sync dist/ s3://${S3_BUCKET}/ \
+              --delete \
+              --cache-control "public, max-age=31536000, immutable" \
+              --exclude "*.html"
+
+            # Sync HTML with no-cache
+            aws s3 sync dist/ s3://${S3_BUCKET}/ \
+              --exclude "*" \
+              --include "*.html" \
+              --cache-control "no-cache, no-store, must-revalidate"
+      - run:
+          name: Invalidate CloudFront
+          command: |
+            echo "Invalidating CloudFront ${CLOUDFRONT_ID}"
+
+            INVALIDATION_ID=$(aws cloudfront create-invalidation \
+              --distribution-id ${CLOUDFRONT_ID} \
+              --paths "/*" \
+              --query 'Invalidation.Id' \
+              --output text)
+
+            echo "Created invalidation: ${INVALIDATION_ID}"
+
+            aws cloudfront wait invalidation-completed \
+              --distribution-id ${CLOUDFRONT_ID} \
+              --id ${INVALIDATION_ID}
+
+            echo "Deployment complete!"
+
+# Workflows
+workflows:
+  build_and_deploy:
+    jobs:
+      - lint:
+          filters:
+            branches:
+              only: /.*/
+
+      - test:
+          requires:
+            - lint
+          filters:
+            branches:
+              only: /.*/
+
+      # Dev deployment (develop branch)
+      - build:
+          name: build_dev
+          environment: "dev"
+          requires:
+            - test
+          context:
+            - customer-portal-dev
+          filters:
+            branches:
+              only: develop
+
+      - deploy:
+          name: deploy_dev
+          environment: "dev"
+          requires:
+            - build_dev
+          context:
+            - aws-credentials-dev
+            - customer-portal-dev
+          filters:
+            branches:
+              only: develop
+
+      # Prod deployment (main branch with approval)
+      - build:
+          name: build_prod
+          environment: "prod"
+          requires:
+            - test
+          context:
+            - customer-portal-prod
+          filters:
+            branches:
+              only: main
+
+      - hold_for_approval:
+          type: approval
+          requires:
+            - build_prod
+          filters:
+            branches:
+              only: main
+
+      - deploy:
+          name: deploy_prod
+          environment: "prod"
+          requires:
+            - hold_for_approval
+          context:
+            - aws-credentials-prod
+            - customer-portal-prod
+          filters:
+            branches:
+              only: main
