@@ -5,6 +5,7 @@ version: 2.1
 orbs:
   aws-cli: circleci/aws-cli@4.1.3
   node: circleci/node@5.2.0
+  slack: circleci/slack@4.13.3
 
 # Reusable commands
 commands:
@@ -156,6 +157,68 @@ jobs:
 
             echo "Deployment complete!"
 
+  # Notify Slack of deployment
+  notify_deploy:
+    docker:
+      - image: cimg/base:current
+    resource_class: small
+    parameters:
+      environment:
+        type: string
+        default: "dev"
+    steps:
+      - checkout
+      - run:
+          name: Get commit message
+          command: |
+            COMMIT_MSG=$(git log -1 --pretty=format:'%s')
+            echo "export COMMIT_MSG='${COMMIT_MSG}'" >> $BASH_ENV
+      - slack/notify:
+          channel: deployments
+          event: pass
+          custom: |
+            {
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "🚀 MPWR Customer Portal → << parameters.environment >> deployed",
+                    "emoji": true
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Commit:* ${COMMIT_MSG}"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Environment:*\n<< parameters.environment >>"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Author:*\n${CIRCLE_USERNAME}"
+                    }
+                  ]
+                },
+                {
+                  "type": "context",
+                  "elements": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "<${CIRCLE_BUILD_URL}|View Pipeline> | <https://github.com/MPWR-financial-ai/mpwr-customer-webportal/commit/${CIRCLE_SHA1}|View Commit>"
+                    }
+                  ]
+                }
+              ]
+            }
+
 # Workflows
 workflows:
   build_and_deploy:
@@ -189,6 +252,17 @@ workflows:
             branches:
               only: main
 
+      - notify_deploy:
+          name: notify_dev
+          environment: "dev"
+          requires:
+            - deploy_dev
+          context:
+            - slack-notifications
+          filters:
+            branches:
+              only: main
+
       # Prod deployment (requires approval)
       - build:
           name: build_prod
@@ -204,7 +278,7 @@ workflows:
       - hold_for_prod_approval:
           type: approval
           requires:
-            - deploy_dev
+            - notify_dev
             - build_prod
           filters:
             branches:
@@ -218,6 +292,17 @@ workflows:
           context:
             - aws-credentials-prod
             - customer-portal-prod
+          filters:
+            branches:
+              only: main
+
+      - notify_deploy:
+          name: notify_prod
+          environment: "prod"
+          requires:
+            - deploy_prod
+          context:
+            - slack-notifications
           filters:
             branches:
               only: main
