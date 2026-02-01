@@ -171,11 +171,11 @@ jobs:
       - run:
           name: Get commit message
           command: |
-            COMMIT_MSG=$(git log -1 --pretty=format:'%s')
-            echo "export COMMIT_MSG='${COMMIT_MSG}'" >> $BASH_ENV
+            COMMIT_MSG=$(git log -1 --pretty=format:'%s' | sed 's/"/\\"/g' | sed "s/'/\\'/g")
+            echo "export COMMIT_MSG=\"${COMMIT_MSG}\"" >> $BASH_ENV
       - slack/notify:
           channel: deployments
-          event: pass
+          event: always
           custom: |
             {
               "blocks": [
@@ -183,7 +183,7 @@ jobs:
                   "type": "header",
                   "text": {
                     "type": "plain_text",
-                    "text": "🚀 MPWR Customer Portal → << parameters.environment >> deployed",
+                    "text": "MPWR Customer Portal deployed to << parameters.environment >>",
                     "emoji": true
                   }
                 },
