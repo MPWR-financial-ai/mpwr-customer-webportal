@@ -1,9 +1,18 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import useStore from '../../store/useStore';
+import { useAuth } from '../../context/AuthContext';
 import './Profile.css';
 
 const Profile = () => {
-  const { user, signOut } = useStore();
+  const { user } = useStore();
+  const { signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/login', { replace: true });
+  };
   const [showEditModal, setShowEditModal] = useState(false);
 
   const profileItems = [
@@ -148,7 +157,7 @@ const Profile = () => {
         ))}
       </div>
 
-      <button className="logout-btn btn btn-ghost" onClick={signOut}>
+      <button className="logout-btn btn btn-ghost" onClick={handleSignOut}>
         {getIcon('logout')}
         Sign Out
       </button>
