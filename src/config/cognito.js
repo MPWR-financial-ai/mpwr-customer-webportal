@@ -16,9 +16,10 @@ const DEV_DEFAULTS = {
 };
 
 // Get Cognito config from environment variables or use dev defaults for local
-const userPoolId = import.meta.env.VITE_COGNITO_USER_POOL_ID || DEV_DEFAULTS.userPoolId;
-const userPoolClientId = import.meta.env.VITE_COGNITO_CLIENT_ID || DEV_DEFAULTS.userPoolClientId;
-const cognitoDomain = import.meta.env.VITE_COGNITO_DOMAIN || DEV_DEFAULTS.domain;
+// Variable names match CircleCI context: VITE_COGNITO_CUSTOMER_*
+const userPoolId = import.meta.env.VITE_COGNITO_CUSTOMER_POOL_ID || DEV_DEFAULTS.userPoolId;
+const userPoolClientId = import.meta.env.VITE_COGNITO_CUSTOMER_CLIENT_ID || DEV_DEFAULTS.userPoolClientId;
+const cognitoDomain = import.meta.env.VITE_COGNITO_CUSTOMER_DOMAIN || DEV_DEFAULTS.domain;
 
 export const cognitoConfig = {
   Auth: {
