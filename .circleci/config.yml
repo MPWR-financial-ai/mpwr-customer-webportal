@@ -174,7 +174,7 @@ jobs:
             COMMIT_MSG=$(git log -1 --pretty=format:'%s' | sed 's/"/\\"/g' | sed "s/'/\\'/g")
             echo "export COMMIT_MSG=\"${COMMIT_MSG}\"" >> $BASH_ENV
       - slack/notify:
-          channel: deployments
+          channel: deployment-status
           event: always
           custom: |
             {
