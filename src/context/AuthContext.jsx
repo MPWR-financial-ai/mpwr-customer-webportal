@@ -140,13 +140,38 @@ export const AuthProvider = ({ children }) => {
 
   const handleSignOut = useCallback(async () => {
     try {
+      // Call backend to perform global sign out (invalidates all tokens)
+      try {
+        const session = await fetchAuthSession();
+        const token = session.tokens?.idToken?.toString();
+        if (token) {
+          await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/api/user/signout`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          });
+        }
+      } catch (err) {
+        console.error('Backend signout error:', err);
+        // Continue with local signout even if backend fails
+      }
+
+      // Sign out from Amplify (clears local session)
       await signOut();
+
+      // Clear all local state
       setUser(null);
       setIsAuthenticated(false);
       setChallengeName(null);
       setChallengeUser(null);
       setStoreUser(null);
-      setAuthToken(null); // Clear the API auth token
+      setAuthToken(null);
+
+      // Clear any cached data
+      localStorage.removeItem('amplify-signin-with-hostedUI');
+      sessionStorage.clear();
     } catch (error) {
       console.error('Sign out error:', error);
     }
